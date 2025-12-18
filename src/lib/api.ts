@@ -1,6 +1,20 @@
 const BASE_PATH = import.meta.env.BASE_URL || '/';
 const API_BASE = `${BASE_PATH}${BASE_PATH.endsWith('/') ? '' : '/'}api`;
 
+export interface PowerStateData {
+  powerOn: boolean | null;
+  state: 'OFF' | 'WARMING_UP' | 'ON' | 'COOLING_DOWN' | 'UNKNOWN';
+  transitionStartTime: number | null;
+  remainingSeconds: number;
+}
+
+export async function getPowerState(): Promise<PowerStateData> {
+  const res = await fetch(`${API_BASE}/power-state`);
+  const { error, data } = await res.json();
+  if (error) throw new Error(error);
+  return data;
+}
+
 export async function getPowerStatus(): Promise<boolean | null> {
   const res = await fetch(`${API_BASE}/power`);
   const { error, data } = await res.json();

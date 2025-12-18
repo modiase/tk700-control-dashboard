@@ -5,9 +5,8 @@
     PowerState,
     type PowerStateInfo,
     getPowerStateInfo,
-    getNextState,
   } from '../lib/powerState';
-  import { powerState, setPowerState } from '../lib/poller';
+  import { powerState } from '../lib/poller';
   import type { Subscription } from 'rxjs';
   import WidgetCard from './WidgetCard.svelte';
   import LoadingSpinner from './LoadingSpinner.svelte';
@@ -15,7 +14,6 @@
   let powerOn: boolean | null = null;
   let powerStateValue: PowerState = PowerState.UNKNOWN;
   let stateInfo: PowerStateInfo = getPowerStateInfo(PowerState.UNKNOWN);
-  let transitionStartTime: number | null = null;
   let loading = true;
   let remainingSeconds = 0;
   let subscription: Subscription;
@@ -25,15 +23,6 @@
   $: stateInfo = getPowerStateInfo(powerStateValue);
   $: isTransitioning =
     powerStateValue === PowerState.WARMING_UP || powerStateValue === PowerState.COOLING_DOWN;
-
-  $: {
-    if (isTransitioning && transitionStartTime && stateInfo.estimatedTransitionTimeSeconds) {
-      const elapsed = (Date.now() - transitionStartTime) / 1000;
-      remainingSeconds = Math.max(0, Math.ceil(stateInfo.estimatedTransitionTimeSeconds - elapsed));
-    } else {
-      remainingSeconds = 0;
-    }
-  }
 
   $: transitionSubtitle = (() => {
     if (powerStateValue === PowerState.WARMING_UP) {
@@ -63,7 +52,6 @@
 
     try {
       await setPower(targetOn);
-      setPowerState(targetOn, getNextState(powerStateValue, targetOn));
     } catch (e) {
       console.error('Failed to toggle power:', e);
       actionMessage = 'Failed to toggle power';
@@ -76,6 +64,8 @@
 
   onMount(() => {
     subscription = powerState.subscribe(state => {
+      if (state === null) return;
+
       if (state.powerOn !== null && actionMessage && expectedPowerState !== null) {
         if (state.powerOn === expectedPowerState) {
           actionMessage = null;
@@ -83,24 +73,10 @@
         }
       }
       powerOn = state.powerOn;
-      powerStateValue = state.state;
-      transitionStartTime = state.transitionStartTime;
+      powerStateValue = state.state as PowerState;
+      remainingSeconds = state.remainingSeconds;
       loading = false;
     });
-
-    const countdownInterval = setInterval(() => {
-      if (isTransitioning && transitionStartTime && stateInfo.estimatedTransitionTimeSeconds) {
-        const elapsed = (Date.now() - transitionStartTime) / 1000;
-        remainingSeconds = Math.max(
-          0,
-          Math.ceil(stateInfo.estimatedTransitionTimeSeconds - elapsed)
-        );
-      }
-    }, 100);
-
-    return () => {
-      clearInterval(countdownInterval);
-    };
   });
 
   onDestroy(() => {

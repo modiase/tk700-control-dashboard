@@ -1,6 +1,7 @@
 import { connect } from 'net';
 import * as TE from 'fp-ts/TaskEither';
 import * as O from 'fp-ts/Option';
+import * as E from 'fp-ts/Either';
 import { pipe, flow } from 'fp-ts/function';
 import * as AT from './apiTask';
 import { tk700Logger as logger } from './logger';
@@ -9,11 +10,21 @@ const tap =
   <T>(fn: (value: T) => void) =>
   (value: T): T => (fn(value), value);
 
+interface CacheEntry<T> {
+  value: T;
+  timestamp: number;
+  consecutiveErrors: number;
+}
+
 export class TK700Client {
   private host: string;
   private port: number;
   private timeout: number;
   private commandQueue: Promise<any> = Promise.resolve();
+  private cache = new Map<string, CacheEntry<any>>();
+  private inFlightRequests = new Map<string, Promise<any>>();
+  private cacheMaxAge = 1000;
+  private maxConsecutiveErrors = 3;
 
   constructor(host: string, port: number, timeout: number) {
     this.host = host;
@@ -101,24 +112,136 @@ export class TK700Client {
         )
       );
 
+  private isStale = (entry: CacheEntry<any>): boolean =>
+    Date.now() - entry.timestamp > this.cacheMaxAge;
+
+  private shouldInvalidate = (entry: CacheEntry<any>): boolean =>
+    entry.consecutiveErrors >= this.maxConsecutiveErrors;
+
+  private getCached = <T>(key: string): O.Option<T> =>
+    pipe(
+      O.fromNullable(this.cache.get(key)),
+      O.filter(entry => !this.shouldInvalidate(entry)),
+      O.map(entry => entry.value)
+    );
+
+  private setCached = <T>(key: string, value: T): void => {
+    this.cache.set(key, {
+      value,
+      timestamp: Date.now(),
+      consecutiveErrors: 0,
+    });
+  };
+
+  private recordError = (key: string): void => {
+    const entry = this.cache.get(key);
+    if (entry) {
+      this.cache.set(key, {
+        ...entry,
+        consecutiveErrors: entry.consecutiveErrors + 1,
+      });
+    }
+  };
+
+  private updateFromFetch = <T>(key: string, result: E.Either<Error, O.Option<T>>): O.Option<T> =>
+    pipe(
+      result,
+      E.fold(
+        () => {
+          this.recordError(key);
+          return this.getCached<T>(key);
+        },
+        option =>
+          pipe(
+            option,
+            O.fold(
+              () => {
+                this.recordError(key);
+                return this.getCached<T>(key);
+              },
+              value => {
+                const entry = this.cache.get(key);
+                if (entry) {
+                  this.cache.set(key, {
+                    value,
+                    timestamp: Date.now(),
+                    consecutiveErrors: 0,
+                  });
+                } else {
+                  this.setCached(key, value);
+                }
+                return O.some(value);
+              }
+            )
+          )
+      )
+    );
+
   private queryPipeline = <T>(
     command: string,
     regex: RegExp,
     transform: (match: string) => T = s => s as unknown as T,
     logContext: string = command
-  ): AT.ApiTask<T> =>
-    pipe(
-      this.sendCommand(command),
-      TE.map(tap(response => logger.debug({ response }, `${logContext} raw response`))),
-      TE.map(this.checkBlockItem),
-      TE.chain(
-        flow(
-          O.chain(this.parseResponse(regex, transform)),
-          this.optionToTask(`Parsed ${logContext}`)
-        )
-      ),
-      AT.tapError(error => logger.error({ error, command }, `Failed to get ${logContext}`))
+  ): AT.ApiTask<T> => async () => {
+    const cacheKey = command;
+    const cached = this.getCached<T>(cacheKey);
+
+    return pipe(
+      cached,
+      O.fold(
+        async () => {
+          const existingRequest = this.inFlightRequests.get(cacheKey);
+          if (existingRequest) {
+            return existingRequest;
+          }
+
+          const request = pipe(
+            this.sendCommand(command),
+            TE.map(tap(response => logger.debug({ response }, `${logContext} raw response`))),
+            TE.map(this.checkBlockItem),
+            TE.chain(
+              flow(
+                O.chain(this.parseResponse(regex, transform)),
+                this.optionToTask(`Parsed ${logContext}`)
+              )
+            ),
+            AT.tapError(error => logger.error({ error, command }, `Failed to get ${logContext}`))
+          )();
+
+          this.inFlightRequests.set(cacheKey, request);
+
+          try {
+            const result = await request;
+            this.inFlightRequests.delete(cacheKey);
+            return E.right(this.updateFromFetch(cacheKey, result));
+          } catch (error) {
+            this.inFlightRequests.delete(cacheKey);
+            throw error;
+          }
+        },
+        async value => {
+          const entry = this.cache.get(cacheKey);
+          if (entry && this.isStale(entry)) {
+            pipe(
+              this.sendCommand(command),
+              TE.map(tap(response => logger.debug({ response }, `${logContext} raw response`))),
+              TE.map(this.checkBlockItem),
+              TE.chain(
+                flow(
+                  O.chain(this.parseResponse(regex, transform)),
+                  this.optionToTask(`Parsed ${logContext}`)
+                )
+              ),
+              AT.tapError(error => logger.error({ error, command }, `Failed to get ${logContext}`))
+            )()
+              .then(result => this.updateFromFetch(cacheKey, result))
+              .catch(() => this.recordError(cacheKey));
+          }
+          return E.right(O.some(value));
+        }
+      )
     );
+  };
 
   private commandPipeline = (
     command: string,
