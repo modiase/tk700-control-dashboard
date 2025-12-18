@@ -29,6 +29,20 @@ repos:
         files: ^server/
         pass_filenames: true
 
+      - id: typescript-check
+        name: TypeScript type check
+        entry: npx tsc --noEmit
+        language: system
+        types_or: [ts, tsx]
+        pass_filenames: false
+
+      - id: svelte-check
+        name: Svelte check
+        entry: npx svelte-check --threshold warning
+        language: system
+        files: \.svelte$
+        pass_filenames: false
+
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.9.0.6
     hooks:
