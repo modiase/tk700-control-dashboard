@@ -1,5 +1,5 @@
 {
-  description = "TK700 Control Dashboard";
+  description = "TK700 Controller Dashboard";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -22,7 +22,7 @@
         bun = pkgs.bun;
 
         pnpmDeps = pnpm.fetchDeps {
-          pname = "benq-control-server";
+          pname = "tk700-controller-dashboard-server";
           version = "0.1.0";
           src = ./.;
           hash = "sha256-K3/tWUEmcTOdpFzSdcA4qh6JL/rWELBxq4vEJgN/r/c=";
@@ -30,7 +30,7 @@
         };
 
         server = pkgs.stdenv.mkDerivation rec {
-          pname = "benq-control-server";
+          pname = "tk700-controller-dashboard-server";
           version = "0.1.0";
           src = ./.;
 
@@ -67,19 +67,19 @@
                         cp server.js $out/lib/benq-control/
 
                         mkdir -p $out/bin
-                        cat > $out/bin/benq-control-server <<EOF
+                        cat > $out/bin/tk700-controller-dashboard-server <<EOF
             #!/bin/sh
             cd $out/lib/benq-control
             exec ${bun}/bin/bun run server.js
             EOF
-                        chmod +x $out/bin/benq-control-server
+                        chmod +x $out/bin/tk700-controller-dashboard-server
 
                         runHook postInstall
           '';
 
           meta = {
-            description = "Web-based control dashboard for BenQ TK700 projector";
-            mainProgram = "benq-control-server";
+            description = "Web-based controller dashboard for BenQ TK700 projector";
+            mainProgram = "tk700-controller-dashboard-server";
           };
         };
       in
@@ -91,7 +91,7 @@
 
         apps.default = {
           type = "app";
-          program = "${server}/bin/benq-control-server";
+          program = "${server}/bin/tk700-controller-dashboard-server";
         };
 
         devShells.default = pkgs.mkShell {

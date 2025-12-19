@@ -29,14 +29,11 @@ export class TCPTransport {
   }
 
   async sendRequest(data: string, priority: number = 0): Promise<string> {
-    return this.enqueueRequest(
-      async () => {
-        await this.waitForThrottle();
-        await this.ensureConnected();
-        return this.executeRequest(data);
-      },
-      priority
-    );
+    return this.enqueueRequest(async () => {
+      await this.waitForThrottle();
+      await this.ensureConnected();
+      return this.executeRequest(data);
+    }, priority);
   }
 
   close(): void {

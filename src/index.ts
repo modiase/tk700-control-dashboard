@@ -13,7 +13,10 @@ import { BlankController } from './lib/controllers/blankController';
 import { FreezeController } from './lib/controllers/freezeController';
 import { TemperatureController } from './lib/controllers/temperatureController';
 import { FanController } from './lib/controllers/fanController';
-import { PictureSettingsController, type PictureSettingsValue } from './lib/controllers/pictureSettingsController';
+import {
+  PictureSettingsController,
+  type PictureSettingsValue,
+} from './lib/controllers/pictureSettingsController';
 import { PictureModeController } from './lib/controllers/pictureModeController';
 import { HdmiSourceController } from './lib/controllers/hdmiSourceController';
 import { MenuController } from './lib/controllers/menuController';
@@ -22,14 +25,16 @@ const app = new Hono();
 
 app.use('/*', cors());
 
-if (!process.env.TK700_HOST || !process.env.TK700_PORT) {
-  throw new Error('TK700_HOST and TK700_PORT environment variables are required');
+if (!process.env.TK700_CONTROLLER_HOST || !process.env.TK700_CONTROLLER_PORT) {
+  throw new Error(
+    'TK700_CONTROLLER_HOST and TK700_CONTROLLER_PORT environment variables are required'
+  );
 }
 
 const tcpClient = new TCPClient(
-  process.env.TK700_HOST,
-  parseInt(process.env.TK700_PORT),
-  parseInt(process.env.TK700_TIMEOUT || '5000')
+  process.env.TK700_CONTROLLER_HOST,
+  parseInt(process.env.TK700_CONTROLLER_PORT),
+  parseInt(process.env.TK700_CONTROLLER_TIMEOUT || '5000')
 );
 
 const stateRegistry = new StateRegistry();
@@ -161,17 +166,23 @@ class SSEBroadcaster {
         try {
           await stream.write(`data: ${JSON.stringify(data)}\n\n`);
         } catch (error) {
-          logger.warn({ error: error instanceof Error ? error.message : String(error) }, 'SSE client write failed');
+          logger.warn(
+            { error: error instanceof Error ? error.message : String(error) },
+            'SSE client write failed'
+          );
           this.clients.delete(stream);
         }
       })
     );
     if (this.clients.size < clientsBefore) {
-      logger.info({
-        clientsBefore,
-        clientsAfter: this.clients.size,
-        removed: clientsBefore - this.clients.size
-      }, 'Cleaned up failed SSE clients');
+      logger.info(
+        {
+          clientsBefore,
+          clientsAfter: this.clients.size,
+          removed: clientsBefore - this.clients.size,
+        },
+        'Cleaned up failed SSE clients'
+      );
     }
   }
 
@@ -194,17 +205,9 @@ class SSEBroadcaster {
 const sseBroadcaster = new SSEBroadcaster();
 
 const handleTask = async <T>(task: RT.ResultTask<T>, c: Context) =>
-  pipe(
-    await task(),
-    RT.toApiResponse,
-    response => c.json(response, response.error ? 500 : 200)
-  );
+  pipe(await task(), RT.toApiResponse, response => c.json(response, response.error ? 500 : 200));
 
-const handleMutation = async (
-  stateKey: string,
-  operation: () => Promise<void>,
-  c: Context
-) => {
+const handleMutation = async (stateKey: string, operation: () => Promise<void>, c: Context) => {
   const state = stateRegistry.getState(stateKey);
   if (!state.mutable) {
     return c.json({ error: 'Request already in progress', data: null }, 429);
@@ -217,7 +220,10 @@ const handleMutation = async (
     await sseBroadcaster.broadcastCurrentState();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 };
 
@@ -243,7 +249,10 @@ app.get('/api/stream', c => {
         try {
           await stream.write(': keepalive\n');
         } catch (error) {
-          logger.warn({ error: error instanceof Error ? error.message : String(error) }, 'SSE keepalive write failed');
+          logger.warn(
+            { error: error instanceof Error ? error.message : String(error) },
+            'SSE keepalive write failed'
+          );
           break;
         }
       }
@@ -288,9 +297,17 @@ app.post('/api/brightness', async c => {
   const body = await c.req.json();
 
   if (body.direction) {
-    return handleMutation('pictureSettings', () => pictureSettingsController.adjustBrightness(body.direction), c);
+    return handleMutation(
+      'pictureSettings',
+      () => pictureSettingsController.adjustBrightness(body.direction),
+      c
+    );
   } else if (body.value !== undefined) {
-    return handleMutation('pictureSettings', () => pictureSettingsController.setBrightness(body.value), c);
+    return handleMutation(
+      'pictureSettings',
+      () => pictureSettingsController.setBrightness(body.value),
+      c
+    );
   } else {
     return c.json({ error: 'Invalid request', data: null }, 400);
   }
@@ -346,7 +363,10 @@ app.post('/api/menu/open', async c => {
     await menuController.openMenu();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 });
 
@@ -355,7 +375,10 @@ app.post('/api/menu/close', async c => {
     await menuController.closeMenu();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 });
 
@@ -364,7 +387,10 @@ app.post('/api/menu/up', async c => {
     await menuController.navigateUp();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 });
 
@@ -373,7 +399,10 @@ app.post('/api/menu/down', async c => {
     await menuController.navigateDown();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 });
 
@@ -382,7 +411,10 @@ app.post('/api/menu/right', async c => {
     await menuController.navigateRight();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 });
 
@@ -391,7 +423,10 @@ app.post('/api/menu/left', async c => {
     await menuController.navigateLeft();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 });
 
@@ -400,7 +435,10 @@ app.post('/api/menu/enter', async c => {
     await menuController.confirm();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 });
 
@@ -409,7 +447,10 @@ app.post('/api/menu/back', async c => {
     await menuController.back();
     return c.json({ error: null, data: null });
   } catch (error) {
-    return c.json({ error: error instanceof Error ? error.message : String(error), data: null }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : String(error), data: null },
+      500
+    );
   }
 });
 
@@ -423,11 +464,11 @@ if (!process.env.PORT) {
 const port = parseInt(process.env.PORT);
 const hostname = process.env.HOST;
 
-const logConfig: any = { port, tk700Host: process.env.TK700_HOST };
+const logConfig: any = { port, tk700Host: process.env.TK700_CONTROLLER_HOST };
 if (hostname) {
   logConfig.hostname = hostname;
 }
-logger.info(logConfig, 'TK700 Control Server starting');
+logger.info(logConfig, 'TK700_CONTROLLER Control Server starting');
 
 const serverConfig: any = { port, fetch: app.fetch };
 if (hostname) {

@@ -24,7 +24,11 @@ const levelColors: Record<keyof typeof levels, (str: string) => string> = {
 const currentLevel = levels[logLevel as keyof typeof levels] ?? levels.info;
 
 function createLogger(context?: Record<string, unknown>) {
-  const log = (level: keyof typeof levels, msgOrObj: string | Record<string, unknown>, ...args: unknown[]) => {
+  const log = (
+    level: keyof typeof levels,
+    msgOrObj: string | Record<string, unknown>,
+    ...args: unknown[]
+  ) => {
     if (levels[level] < currentLevel) return;
 
     const now = new Date();
@@ -46,10 +50,14 @@ function createLogger(context?: Record<string, unknown>) {
     }
 
     const allContext = { ...context, ...extraContext };
-    const contextStr = Object.keys(allContext).length > 0
-      ? ` | ${Object.entries(allContext).map(([k, v]) => `${k}:${JSON.stringify(v)}`).join(' ')}`
-      : '';
-    const method = level === 'fatal' || level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
+    const contextStr =
+      Object.keys(allContext).length > 0
+        ? ` | ${Object.entries(allContext)
+            .map(([k, v]) => `${k}:${JSON.stringify(v)}`)
+            .join(' ')}`
+        : '';
+    const method =
+      level === 'fatal' || level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
 
     const levelStr = level.toUpperCase().padEnd(5);
     const colorize = shouldColorize ? levelColors[level] : (s: string) => s;
@@ -60,16 +68,21 @@ function createLogger(context?: Record<string, unknown>) {
   };
 
   return {
-    trace: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) => log('trace', msgOrObj, ...args),
-    debug: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) => log('debug', msgOrObj, ...args),
-    info: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) => log('info', msgOrObj, ...args),
-    warn: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) => log('warn', msgOrObj, ...args),
-    error: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) => log('error', msgOrObj, ...args),
-    fatal: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) => log('fatal', msgOrObj, ...args),
-    child: (childContext: Record<string, unknown>) =>
-      createLogger({ ...context, ...childContext }),
+    trace: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) =>
+      log('trace', msgOrObj, ...args),
+    debug: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) =>
+      log('debug', msgOrObj, ...args),
+    info: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) =>
+      log('info', msgOrObj, ...args),
+    warn: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) =>
+      log('warn', msgOrObj, ...args),
+    error: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) =>
+      log('error', msgOrObj, ...args),
+    fatal: (msgOrObj: string | Record<string, unknown>, ...args: unknown[]) =>
+      log('fatal', msgOrObj, ...args),
+    child: (childContext: Record<string, unknown>) => createLogger({ ...context, ...childContext }),
   };
 }
 
 export const logger = createLogger();
-export const tk700Logger = logger.child({ component: 'tk700-client' });
+export const tcpClientLogger = logger.child({ component: 'tcp-client' });

@@ -1,6 +1,8 @@
-# TK700 Control Dashboard
+# TK700 Controller Dashboard
 
-Web control interface for BenQ TK700 projector via RS232-over-TCP. Built with Bun, Hono, Svelte, and fp-ts.
+Web control interface for BenQ TK700 projector via RS232-over-TCP.
+
+![Dashboard](/src/assets/image.png)
 
 ## Quick Start
 
@@ -12,12 +14,12 @@ Access at `http://localhost:3000`
 
 ## Environment Variables
 
-| Variable        | Default | Description                              |
-| --------------- | ------- | ---------------------------------------- |
-| `TK700_HOST`    | -       | Projector IP address (required)          |
-| `TK700_PORT`    | -       | Projector RS232-over-TCP port (required) |
-| `TK700_TIMEOUT` | 5000    | Connection timeout in milliseconds       |
-| `PORT`          | -       | Web server port (required)               |
+| Variable                   | Default | Description                              |
+| -------------------------- | ------- | ---------------------------------------- |
+| `TK700_CONTROLLER_HOST`    | -       | Projector IP address (required)          |
+| `TK700_CONTROLLER_PORT`    | -       | Projector RS232-over-TCP port (required) |
+| `TK700_CONTROLLER_TIMEOUT` | 5000    | Connection timeout in milliseconds       |
+| `PORT`                     | -       | Web server port (required)               |
 
 ## Systemd Deployment
 
@@ -25,13 +27,13 @@ Example service at `/etc/systemd/system/benq-control.service`:
 
 ```ini
 [Unit]
-Description=BenQ TK700 Control Dashboard
+Description=BenQ TK700 Controller Dashboard
 After=network-online.target
 
 [Service]
-ExecStart=/run/current-system/sw/bin/benq-control-server
-Environment="TK700_HOST=192.168.1.80"
-Environment="TK700_PORT=8234"
+ExecStart=/run/current-system/sw/bin/tk700-controller-dashboard-server
+Environment="TK700_CONTROLLER_HOST=192.168.1.80"
+Environment="TK700_CONTROLLER_PORT=8234"
 Environment="PORT=3000"
 Restart=on-failure
 
@@ -41,28 +43,24 @@ WantedBy=multi-user.target
 
 Note: Server expects to run from its installation directory to serve static assets. The Nix package handles this via wrapper script.
 
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now benq-control
-```
-
 ## Development
 
 ```bash
-nix develop
-cd server && pnpm install && pnpm start
+pnpm install && pnpm start
 ```
 
-Runs vite dev server (frontend with hot reload) + bun backend server separately. Check `./bin/develop` for ports.
+Runs vite dev server (frontend with hot reload) + bun backend server separately.
 
 ## Features
 
-- Power control with transition states
+- On/Off control
 - Temperature and fan monitoring
 - Volume and picture settings (brightness, contrast, sharpness)
-- Real-time polling with RxJS observables
+- Source selection
+- Keystone control
+- Menu control
 
 ## Requirements
 
-- Nix with flakes
-- BenQ TK700 with RS232-Ethernet adapter
+- BenQ TK700
+- RS232-Ethernet adapter

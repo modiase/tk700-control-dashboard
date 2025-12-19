@@ -8,7 +8,7 @@ import * as O from 'fp-ts/Option';
 import * as E from 'fp-ts/Either';
 import { pipe, flow } from 'fp-ts/function';
 import * as RT from '../resultTask';
-import { tk700Logger as logger } from '../logger';
+import { tcpClientLogger as logger } from '../logger';
 import { TCPTransport } from './transport';
 
 const tap =
@@ -33,7 +33,7 @@ export class TCPClient {
       host,
       port,
       timeout,
-      minRequestIntervalMs: 100,
+      minRequestIntervalMs: 10,
       idleTimeoutMs: 30000,
     });
   }
@@ -357,13 +357,25 @@ export class TCPClient {
     this.commandPipeline(on ? 'freeze=on' : 'freeze=off', { on }, 'set freeze');
 
   getVerticalKeystone = (priority?: number): RT.ResultTask<number> =>
-    this.queryPipeline('vkeystone=?', /VKEYSTONE=(-?\d+)/i, parseInt, 'vertical keystone', priority);
+    this.queryPipeline(
+      'vkeystone=?',
+      /VKEYSTONE=(-?\d+)/i,
+      parseInt,
+      'vertical keystone',
+      priority
+    );
 
   adjustVerticalKeystone = (direction: '+' | '-'): RT.ResultTask<undefined> =>
     this.commandPipeline(`vkeystone=${direction}`, { direction }, 'adjust vertical keystone');
 
   getHorizontalKeystone = (priority?: number): RT.ResultTask<number> =>
-    this.queryPipeline('hkeystone=?', /HKEYSTONE=(-?\d+)/i, parseInt, 'horizontal keystone', priority);
+    this.queryPipeline(
+      'hkeystone=?',
+      /HKEYSTONE=(-?\d+)/i,
+      parseInt,
+      'horizontal keystone',
+      priority
+    );
 
   adjustHorizontalKeystone = (direction: '+' | '-'): RT.ResultTask<undefined> =>
     this.commandPipeline(`hkeystone=${direction}`, { direction }, 'adjust horizontal keystone');
