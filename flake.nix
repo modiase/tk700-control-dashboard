@@ -21,7 +21,7 @@
         pnpm = pkgs.pnpm;
         bun = pkgs.bun;
 
-        pnpmDeps = pnpm.fetchDeps {
+        pnpmDeps = pkgs.fetchPnpmDeps {
           pname = "tk700-controller-dashboard-server";
           version = "0.1.0";
           src = ./.;
@@ -38,7 +38,7 @@
 
           nativeBuildInputs = [
             nodejs
-            pnpm.configHook
+            pkgs.pnpmConfigHook
             bun
           ];
 
